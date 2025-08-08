@@ -1,0 +1,1 @@
+Python app that uses Open-Meteo API to gather weather information
