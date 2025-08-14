@@ -1,0 +1,16 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Weather Report</title>
+    <link rel="stylesheet" href="main.css">
+</head>
+<body>
+    <div class="weather-card">
+        <h2>Weather for {{ weather.location }}</h2>
+        <p><strong>Coordinates:</strong> {{ weather.coordinates.lat }}°N {{ weather.coordinates.lon }}°E</p>
+        <p><strong>Elevation:</strong> {{ weather.elevation }}m asl</p>
+        <p><strong>Average Temperature (6 days):</strong> {{ weather.average_temp }} °F</p>
+        <p><strong>Maximum Temperature (6 days):</strong> {{ weather.max_temp }} °F</p>
+    </div>
+</body>
+</html>

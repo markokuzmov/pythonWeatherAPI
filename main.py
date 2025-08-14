@@ -1,3 +1,5 @@
+from flask import Flask, request, jsonify, redirect, url_for, render_template
+
 import openmeteo_requests
 
 import requests_cache
@@ -16,14 +18,7 @@ cache_session = requests_cache.CachedSession('.cache', expire_after = 3600)
 retry_session = retry(cache_session, retries = 5, backoff_factor = 0.2)
 openmeteo = openmeteo_requests.Client(session = retry_session)
 
-
-city_cords = {"Tampa": (28.0, -82.5),
-              "New York": (40.7, -74.0),
-              "Los Angeles": (34.05, -118.25)}
-
-city_names = list(city_cords.keys())
-formatted_latitudes = ",".join([str(value[0]) for value in list(city_cords.values())])
-formatted_longitudes = ",".join([str(value[1]) for value in list(city_cords.values())])
+app = Flask(__name__)
 
 def fetchCoordinates(city: str):
     url = f"https://geocode.maps.co/search"
@@ -40,11 +35,11 @@ def fetchCoordinates(city: str):
     return name, coordinates
     
 
-def fetchForecasts(city_cords: dict):
+def fetchForecasts(coordinates):
     url = "https://api.open-meteo.com/v1/forecast"
     params = {
-        "latitude": formatted_latitudes,
-        "longitude": formatted_longitudes,
+        "latitude": coordinates[0],
+        "longitude": coordinates[1],
         "hourly": "temperature_2m",
         "temperature_unit": "fahrenheit",
         "forecast_days": 3,
@@ -53,29 +48,33 @@ def fetchForecasts(city_cords: dict):
     
     responses = openmeteo.weather_api(url, params=params)
     return responses
-    
-def displayData(name, response):
-    city = response[0]
-    
-    #Location Info
-    print(f"\nCity: {name}")
-    print(f"Coordinates: {city.Latitude()}°N {city.Longitude()}°E")
-    print(f"Elevation: {city.Elevation()} m asl")
 
-    #Hourly Data
-    hourly = city.Hourly()
-    hourly_temperature_2m = hourly.Variables(0).ValuesAsNumpy()
-    max_temp = max(hourly_temperature_2m)
-    average_temp = sum(hourly_temperature_2m) / len(hourly_temperature_2m)
+@app.route("/")
+def index():
+    return render_template("index.html")
+
+@app.route("/forecast", methods=["GET"])
+def forecast():
+    location = request.args.get("location")
+    if not location:
+        return jsonify({"error": "No location parameter"}), 400
     
-    print(f"Average Temperature (6 day): {average_temp:.2f} °F")
-    print(f"Maximum Temperature (6 day): {max_temp:.2f} °F")
+    name, coordinates = fetchCoordinates(location)
+    forecast = fetchForecasts(coordinates)
+    location_data = forecast[0]
+    hourly = location_data.Hourly().Variables(0).ValuesAsNumpy()
+    data = {
+        "location": name,
+        "coordinates": {
+            "lat": location_data.Latitude(),
+            "lon": location_data.Longitude()
+        },
+        "elevation": location_data.Elevation(),
+        "average_temp": float(sum(hourly) / len(hourly)),
+        "max_temp": float(max(hourly))
+    }
     
-def main():
-    query = input("Search: ")
-    name, coordinates = fetchCoordinates(query)
-    response = fetchForecasts(coordinates)
-    displayData(name, response)
-   
+    return render_template("weather.html", weather=data)
+
 if __name__ == "__main__":
-    main()
+    app.run(debug=True)
